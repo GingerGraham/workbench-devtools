@@ -237,7 +237,9 @@ _edit_install_from_api_response() {
         rm -rf "${tmp_dir}"; return 1
     fi
 
-    local binary; binary="$(find "${tmp_dir}" -name "edit" -type f -executable | head -1)"
+    # -perm -u+x, not GNU-only -executable: this module targets macOS (BSD
+    # find) too, per _edit_arch_stem's apple-darwin branch below.
+    local binary; binary="$(find "${tmp_dir}" -name "edit" -type f -perm -u+x | head -1)"
     if [[ -z "${binary}" ]]; then
         log_error "edit binary not found in archive — contents:"
         find "${tmp_dir}" -type f | sed 's/^/  /'

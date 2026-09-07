@@ -34,3 +34,15 @@ All notable changes to `workbench-devtools` are documented here.
 - `install-flatpak` moved to `workbench-desktop` (its actual consumer
   domain) rather than living here with the rest of the precursor's
   `installers-system.sh` slice.
+
+### Fixed
+
+- `install-edit`'s binary lookup used GNU-only `find -executable`, which
+  BSD `find` (macOS — a target platform per `_edit_arch_stem`'s
+  `apple-darwin` branch) doesn't support. Switched to the portable
+  `-perm -u+x`, matching `workbench-git`'s `gh`/`glab` binary lookups.
+- `get-devtools-functions` no longer scans `shell/installers.sh` — its
+  `install-*` functions are never sourced into the interactive shell (only
+  `wb tools` sources that file, transiently, one function at a time), so
+  advertising them there was misleading. Matches the convention already
+  used by `workbench-shell`/`workbench-git`/`workbench-gpg`/`workbench-ssh`.

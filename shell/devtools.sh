@@ -15,6 +15,10 @@ list-edit-releases() {
 
 get-devtools-functions() {
     local _dir; _dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # installers.sh is deliberately excluded -- its install-* functions are
+    # surfaced via `wb tools list`, not this getter (they're never sourced
+    # into the interactive shell; see shell/devtools.sh's header comment and
+    # workbench-shell's shell/aliases.sh for the same convention).
     _get_functions_in "Devtools functions" "" \
-        "${_dir}/go.sh" "${_dir}/development.sh" "${_dir}/devtools.sh" "${_dir}/installers.sh"
+        "${_dir}/go.sh" "${_dir}/development.sh" "${_dir}/devtools.sh"
 }
