@@ -1,0 +1,32 @@
+# .dotfiles-sync.yml — workbench-devtools
+#
+# Ecosystem module (workbench-core ARCHITECTURE.md §2/§3): general dev
+# tooling — Go, uv/pyenv/nvm environment wiring, and installers for nvm,
+# Microsoft Edit, jq, uv, snapd. Meaningless standalone — depends on
+# workbench-core's loader and Core API.
+#
+# See contracts/manifest-spec.md (in workbench-core) for the full field
+# reference.
+version: 1
+branch: main
+
+core_api: ">=1.1 <2.0"
+sync:
+  enabled: true
+
+register:
+  shell:
+    - src: shell/go.sh
+      tier: tools
+    - src: shell/development.sh
+      tier: env
+    - src: shell/completions/uv.sh
+      tier: tools
+    - src: shell/devtools.sh
+      tier: tools
+  installers:
+    - src: shell/installers.sh
+  getters:
+    - name: devtools
+      function: get-devtools-functions
+      label: "Go/Python/Node dev environment + nvm/edit/jq/uv/snapd installers"
