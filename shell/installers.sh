@@ -364,6 +364,7 @@ install-jq() {
     esac
     [[ "${ok}" -ne 0 ]] && { _jq-install-binary || return 1; }
 
+    # shellcheck disable=SC2015
     command -v jq &>/dev/null \
         && log_info "jq installed: $(jq --version 2>/dev/null)" \
         || log_warn "jq not on PATH after install — check ~/.local/bin is in PATH"
@@ -451,6 +452,7 @@ install-snapd() {
                 # Tumbleweed and Leap use different repo URLs; Tumbleweed also
                 # needs snapd.apparmor enabled.
                 local os_name opensuse_repo_url
+                # shellcheck disable=SC1091
                 os_name="$(. /etc/os-release 2>/dev/null && echo "${NAME:-}")"
 
                 if echo "${os_name}" | grep -qi 'tumbleweed'; then
@@ -458,6 +460,7 @@ install-snapd() {
                 else
                     # Leap (and any other SUSE variant) — version-specific URL
                     local opensuse_ver
+                    # shellcheck disable=SC1091
                     opensuse_ver="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-15.6}")"
                     opensuse_repo_url="https://download.opensuse.org/repositories/system:/snappy/openSUSE_Leap_${opensuse_ver}/"
                 fi
@@ -505,6 +508,7 @@ install-snapd() {
 
         # Tumbleweed requires snapd.apparmor in addition to snapd.socket
         local os_name
+        # shellcheck disable=SC1091
         os_name="$(. /etc/os-release 2>/dev/null && echo "${NAME:-}")"
         if echo "${os_name}" | grep -qi 'tumbleweed'; then
             if ! systemctl is-enabled snapd.apparmor &>/dev/null; then
