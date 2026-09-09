@@ -152,6 +152,17 @@ install-nvm() {
     echo "    nvm alias default 20   # set the default for new shells"
 }
 
+# NOT `command -v nvm` — nvm is a shell FUNCTION sourced from
+# ${NVM_DIR}/nvm.sh, never an on-disk executable. `wb tools` sources this
+# file transiently in an isolated subprocess that never sources nvm.sh
+# itself, so `command -v nvm` would report "not found" unconditionally
+# regardless of whether nvm is actually installed — a systematic false
+# negative, not a usable check. The on-disk artifact install-nvm itself
+# checks (`[[ -s "${NVM_DIR}/nvm.sh" ]]`) is the only reliable signal.
+installed-nvm() {
+    [[ -s "${NVM_DIR:-${HOME}/.nvm}/nvm.sh" ]]
+}
+
 # ── Microsoft Edit install ────────────────────────────────────────────────────
 
 # _edit_arch_stem <version_string>
@@ -268,6 +279,10 @@ install-edit() {
     _edit_install_from_api_response "${api_response}" "${ver}"
 }
 
+installed-edit() {
+    command -v edit &>/dev/null
+}
+
 install-edit-version() {
     local target_version="$1"
     [[ -z "${target_version}" ]] && { log_error "Usage: install-edit-version <version>  (e.g. v2.0.0)"; return 1; }
@@ -370,6 +385,10 @@ install-jq() {
         || log_warn "jq not on PATH after install — check ~/.local/bin is in PATH"
 }
 
+installed-jq() {
+    command -v jq &>/dev/null
+}
+
 # ── uv install ────────────────────────────────────────────────────────────────
 #
 # Astral's official standalone installer, run with UV_NO_MODIFY_PATH=1.
@@ -419,6 +438,10 @@ install-uv() {
     else
         log_warn "uv not found on PATH after install. Restart your shell or check ~/.local/bin."
     fi
+}
+
+installed-uv() {
+    command -v uv &>/dev/null
 }
 
 # ── snapd install ─────────────────────────────────────────────────────────────
@@ -532,4 +555,10 @@ install-snapd() {
 
     log_info "snapd ready: $(snap version 2>/dev/null | grep snapd | awk '{print $2}')"
     log_info "You may need to log out and back in for PATH changes to take effect."
+}
+
+# snapd's CLI command is `snap`, not `snapd` (that's the daemon name) —
+# mirrors install-snapd's own check.
+installed-snapd() {
+    command -v snap &>/dev/null
 }
