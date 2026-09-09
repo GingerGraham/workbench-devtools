@@ -7,9 +7,9 @@ All notable changes to `workbench-devtools` are documented here.
 ### Added
 
 - Added `installed-nvm`, `installed-edit`, `installed-jq`, `installed-uv`,
-  `installed-snapd` — reports install status to `wb tools upgrade`/`list
-  --status` (workbench-core §12 D43). `install-edit-version` deliberately
-  has no predicate — see shell/installers.sh comment for why.
+  `installed-snapd` — reports install status to `wb tools upgrade`/
+  `wb tools list --status` (workbench-core §12 D43). `install-edit-version`
+  deliberately has no predicate — see shell/installers.sh comment for why.
 
 ## [0.1.0] - 2026-09-09
 
