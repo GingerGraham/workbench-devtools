@@ -80,6 +80,7 @@ if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
         unset _nvm_fn
         # shellcheck disable=SC1091
         source "${NVM_DIR}/nvm.sh"
+        # shellcheck disable=SC1091
         [[ -s "${NVM_DIR}/bash_completion" ]] && source "${NVM_DIR}/bash_completion"
     }
     nvm()  { _load_nvm; nvm  "$@"; }
