@@ -18,6 +18,13 @@ All notable changes to `workbench-devtools` are documented here.
   piloted on `workbench-git` first. See `workbench-core`'s
   `docs/decisions-log.md` D60.
 
+### Fixed
+
+- **`install-nvm` no longer pipes the nvm install script straight into
+  `bash`** — it now downloads to a temp file via `_download_file_robust`,
+  verifies the download landed and is non-empty, then executes the file.
+  Closes a `scan-patterns` CI finding (remote-script-execution pattern).
+
 ## [0.2.0] - 2026-09-09
 
 ### Added
