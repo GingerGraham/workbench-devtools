@@ -114,10 +114,22 @@ install-nvm() {
     log_info "Target nvm version: ${nvm_ver}"
 
     local install_url="https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_ver}/install.sh"
-    if ! curl -o- "${install_url}" | bash; then
-        log_error "nvm install script failed"
+    local tmp_script
+    if ! tmp_script="$(mktemp)"; then
+        log_error "nvm: mktemp failed — cannot create a temp file for the install script"
         return 1
     fi
+    if ! _download_file_robust "${install_url}" "${tmp_script}" || [[ ! -s "${tmp_script}" ]]; then
+        log_error "nvm: install script download failed or was empty"
+        rm -f "${tmp_script}"
+        return 1
+    fi
+    if ! bash "${tmp_script}"; then
+        log_error "nvm install script failed"
+        rm -f "${tmp_script}"
+        return 1
+    fi
+    rm -f "${tmp_script}"
 
     # Load nvm now (replacing the lazy stubs from shell/development.sh).
     if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
