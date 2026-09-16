@@ -4,6 +4,18 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`get-devtools-functions` no longer lists `get-go-version`, `nvm`,
+  `node`, `npm`, or `npx` on hosts where they can't actually be
+  called** — all five are defined only behind a runtime guard (`go`
+  present, or `nvm.sh` present) that the getter's static listing
+  can't see. Each now carries an availability predicate
+  (`_wb_declare_availability`/`_wb_alias_availability`, from
+  `workbench-core`'s function-availability-gating convention) so the
+  listing matches what's actually usable. Set
+  `WORKBENCH_FUNCTIONS_SHOW_ALL=true` to see hidden entries anyway.
+
 ## [0.2.1] - 2026-09-15
 
 ### Added

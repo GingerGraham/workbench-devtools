@@ -5,6 +5,15 @@
 # Ported from workbench-precursor's shell/config/tools/go.sh, unchanged
 # other than the log_debug call moving inline (no behaviour change).
 
+# get-go-version is only ever defined once the `command -v go` guard below
+# has passed, but get-devtools-functions' static-grep listing can't see
+# that runtime guard, so without this it would list get-go-version even on
+# hosts without go. Declared unconditionally, ahead of the guard, so the
+# predicate itself still exists (and correctly says "unavailable") on a
+# host without go — declaring it inside the guard would mean it's never
+# defined there either, and an undeclared predicate defaults to available.
+_wb_declare_availability go get-go-version
+
 if command -v go &>/dev/null; then
 
     # Populate GO_VERSION, stripping the leading "go" and any build/experiment
