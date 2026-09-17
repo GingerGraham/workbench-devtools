@@ -1,4 +1,4 @@
-# .dotfiles-sync.yml — workbench-devtools
+# workbench.yml — workbench-devtools
 #
 # Ecosystem module (workbench-core ARCHITECTURE.md §2/§3): general dev
 # tooling — Go, uv/pyenv/nvm environment wiring, and installers for nvm,
@@ -7,12 +7,15 @@
 #
 # See contracts/manifest-spec.md (in workbench-core) for the full field
 # reference.
-version: 1
+version: 2
 branch: main
 
 core_api: ">=1.2 <2.0"
 sync:
   enabled: true
+
+info:
+  description: "Go/Python/Node dev environment wiring plus nvm/Edit/jq/uv/snapd installers"
 
 register:
   shell:
