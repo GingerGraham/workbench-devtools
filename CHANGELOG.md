@@ -4,6 +4,15 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **`install-uv` no longer pipes astral.sh's installer script into `sh`.**
+  It now prefers Fedora's own `uv` package (`dnf`), then a Homebrew
+  formula on macOS, then a GitHub release tarball verified against its
+  published `.sha256` via workbench-core's `_wb_fetch_verified` — never an
+  unverified download run as code. Requires `workbench-core` Core API
+  `>=1.4` (security review M3).
+
 ## [0.3.0] - 2026-09-23
 
 ### Added
