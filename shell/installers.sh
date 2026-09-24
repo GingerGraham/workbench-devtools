@@ -404,10 +404,9 @@ installed-jq() {
 # ── uv install ────────────────────────────────────────────────────────────────
 #
 # Fedora's own dnf repository, then a Homebrew formula on macOS, then a
-# verified GitHub release tarball — never astral.sh's `curl | sh` installer
-# (security review M3): that script piped straight into `sh` with no chance
-# to verify anything, and workbench-core's scanner treats `| env … sh` as
-# unverified too (core WP9).
+# verified GitHub release tarball — never astral.sh's installer, which
+# piped straight into a shell with no chance to verify anything first
+# (security review M3).
 #
 # No UV_INSTALL_DIR-equivalent override needed: ~/.local/bin (the release
 # tarball's install target below) is already on PATH via workbench-core's
