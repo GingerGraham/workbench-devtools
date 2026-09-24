@@ -40,7 +40,7 @@ _gh_release_asset_url() {
 # ── nvm install ──────────────────────────────────────────────────────────────
 
 _nvm_latest_version() {
-    curl -fsS https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null \
+    curl -fsS https://api.github.com/repos/nvm-sh/nvm/releases/latest \
         | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' \
         | head -1
