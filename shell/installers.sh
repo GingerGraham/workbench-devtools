@@ -437,6 +437,9 @@ install-uv() {
 # Latest GitHub release archive, verified against its published .sha256,
 # installed to ~/.local/bin (the same place astral's script used).
 _uv-install-release() {
+    command -v curl &>/dev/null || { log_error "uv: curl is required"; return 1; }
+    command -v tar  &>/dev/null || { log_error "uv: tar is required"; return 1; }
+
     local api_response tag triple asset url tmp_dir dir
     api_response="$(curl -fsS https://api.github.com/repos/astral-sh/uv/releases/latest)" \
         || { log_error "uv: could not query the latest release (network or GitHub API rate limit)"; return 1; }
@@ -444,10 +447,10 @@ _uv-install-release() {
     [[ -z "${tag}" ]] && { log_error "uv: could not determine the latest version"; return 1; }
 
     case "${WORKBENCH_OS}/${WORKBENCH_ARCH}" in
-        Linux/x86_64)          triple="x86_64-unknown-linux-gnu" ;;
-        Linux/aarch64)         triple="aarch64-unknown-linux-gnu" ;;
-        Mac/x86_64)            triple="x86_64-apple-darwin" ;;
-        Mac/arm64|Mac/aarch64) triple="aarch64-apple-darwin" ;;
+        Linux/x86_64)               triple="x86_64-unknown-linux-gnu" ;;
+        Linux/aarch64|Linux/arm64)  triple="aarch64-unknown-linux-gnu" ;;
+        Mac/x86_64)                 triple="x86_64-apple-darwin" ;;
+        Mac/arm64|Mac/aarch64)      triple="aarch64-apple-darwin" ;;
         *) log_error "uv: unsupported platform ${WORKBENCH_OS}/${WORKBENCH_ARCH}"; return 1 ;;
     esac
 
@@ -463,8 +466,12 @@ _uv-install-release() {
     [[ -x "${dir}/uv" && -x "${dir}/uvx" ]] \
         || { log_error "uv: binaries not found in ${asset}"; rm -rf "${tmp_dir}"; return 1; }
     mkdir -p "${HOME}/.local/bin"
-    install -m 755 "${dir}/uv" "${HOME}/.local/bin/uv"
-    install -m 755 "${dir}/uvx" "${HOME}/.local/bin/uvx"
+    if ! install -m 755 "${dir}/uv" "${HOME}/.local/bin/uv" \
+        || ! install -m 755 "${dir}/uvx" "${HOME}/.local/bin/uvx"; then
+        log_error "uv: failed to install into ~/.local/bin"
+        rm -rf "${tmp_dir}"
+        return 1
+    fi
     rm -rf "${tmp_dir}"
     log_info "uv ${tag} installed to ~/.local/bin"
 }
