@@ -40,7 +40,7 @@ _gh_release_asset_url() {
 # ── nvm install ──────────────────────────────────────────────────────────────
 
 _nvm_latest_version() {
-    curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null \
+    curl -fsS https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null \
         | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' \
         | head -1
@@ -249,8 +249,14 @@ _edit_install_from_api_response() {
     local asset_name; asset_name="$(basename "${download_url}")"
     local tmp_dir;    tmp_dir="$(mktemp -d)"
 
+    local digest
+    digest="$(_wb_gh_asset_digest "${api_response}" "${download_url}")"
+    if [[ -z "${digest}" ]]; then
+        log_error "No published SHA-256 for ${asset_name} — refusing to install (security review M3)"
+        rm -rf "${tmp_dir}"; return 1
+    fi
     log_info "Downloading ${asset_name}..."
-    if ! _download_file_robust "${download_url}" "${tmp_dir}/${asset_name}"; then
+    if ! _wb_fetch_verified "${download_url}" "${tmp_dir}/${asset_name}" "${digest}"; then
         rm -rf "${tmp_dir}"; return 1
     fi
 
@@ -282,7 +288,8 @@ install-edit() {
     command -v tar  &>/dev/null || { log_error "tar is required"; return 1; }
 
     local api_response ver
-    api_response="$(curl -s https://api.github.com/repos/microsoft/edit/releases/latest)"
+    api_response="$(curl -fsS https://api.github.com/repos/microsoft/edit/releases/latest)" \
+        || { log_error "edit: could not query the latest release (network or GitHub API rate limit)"; return 1; }
     ver="$(printf '%s' "${api_response}" | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
     [[ -z "${ver}" ]] && { log_error "Could not determine latest edit version"; return 1; }
@@ -304,9 +311,8 @@ install-edit-version() {
 
     log_info "Installing Microsoft Edit ${target_version}..."
     local api_response
-    api_response="$(curl -s "https://api.github.com/repos/microsoft/edit/releases/tags/${target_version}")"
-    printf '%s' "${api_response}" | grep -q '"message": *"Not Found"' \
-        && { log_error "Version ${target_version} not found on GitHub"; return 1; }
+    api_response="$(curl -fsS "https://api.github.com/repos/microsoft/edit/releases/tags/${target_version}")" \
+        || { log_error "edit: version ${target_version} not found on GitHub, or the release query failed (network or rate limit)"; return 1; }
 
     _edit_install_from_api_response "${api_response}" "${target_version}"
 }
@@ -348,7 +354,8 @@ _jq-install-binary() {
     command -v curl &>/dev/null || { log_error "curl is required"; return 1; }
 
     local api_response ver arch url tmp_dir
-    api_response="$(curl -s https://api.github.com/repos/jqlang/jq/releases/latest)"
+    api_response="$(curl -fsS https://api.github.com/repos/jqlang/jq/releases/latest)" \
+        || { log_error "jq: could not query the latest release (network or GitHub API rate limit)"; return 1; }
     # jq tags are `jq-1.7.1`, not `v1.7.1`
     ver="$(printf '%s' "${api_response}" | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"jq-([^"]+)".*/\1/' | head -1)"
@@ -364,8 +371,11 @@ _jq-install-binary() {
     url="$(_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
     [[ -z "${url}" ]] && { log_error "jq: no matching asset for linux/${arch}"; return 1; }
 
+    local digest
+    digest="$(_wb_gh_asset_digest "${api_response}" "${url}")"
+    [[ -z "${digest}" ]] && digest="sums:https://github.com/jqlang/jq/releases/download/jq-${ver}/sha256sum.txt"
     tmp_dir="$(mktemp -d)"
-    _download_file_robust "${url}" "${tmp_dir}/jq" || { rm -rf "${tmp_dir}"; return 1; }
+    _wb_fetch_verified "${url}" "${tmp_dir}/jq" "${digest}" "${url##*/}" || { rm -rf "${tmp_dir}"; return 1; }
     mkdir -p "${HOME}/.local/bin"
     install -m 755 "${tmp_dir}/jq" "${HOME}/.local/bin/jq"
     rm -rf "${tmp_dir}"

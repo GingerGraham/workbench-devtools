@@ -4,6 +4,19 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **`jq`'s and Microsoft Edit's GitHub-release binary fallbacks are now
+  verified against the release's published SHA-256** (via
+  workbench-core's `_wb_gh_asset_digest`/`_wb_fetch_verified`) before
+  being installed, instead of downloaded and trusted outright. Edit's
+  fallback refuses to install when no digest is published. `jq`'s falls
+  back to its upstream `sha256sum.txt` when the GitHub API digest is
+  absent. GitHub API calls across `install-edit`,
+  `install-edit-version`, `_jq-install-binary`, and `_nvm_latest_version`
+  now fail loudly (`curl -fsS`) instead of silently continuing on error.
+  Requires `workbench-core` Core API `>=1.4` (security review M3).
+
 ## [0.3.0] - 2026-09-23
 
 ### Added
