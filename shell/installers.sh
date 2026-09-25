@@ -538,7 +538,10 @@ install-snapd() {
 
                 if ! zypper lr 2>/dev/null | grep -qi 'snappy'; then
                     ${elevation_cmd} zypper addrepo --refresh "${opensuse_repo_url}" snappy
-                    ${elevation_cmd} zypper --gpg-auto-import-keys refresh snappy
+                    # Scoped to the snappy repo alone — a bare `refresh`
+                    # auto-imports signing keys for every configured repo,
+                    # not only the one just added (security review M4).
+                    ${elevation_cmd} zypper --gpg-auto-import-keys refresh snappy  # pattern-scan:ignore -- scoped to a single named repo, not a bare refresh (see comment above)
                 else
                     log_info "snapd: snappy repo already present"
                 fi
