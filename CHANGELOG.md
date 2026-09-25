@@ -4,6 +4,8 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-25
+
 ### Changed
 
 - **`install-uv` no longer pipes astral.sh's installer script into `sh`.**
