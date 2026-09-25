@@ -4,6 +4,16 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Security
+
+- **Annotated the snapd/snappy zypper key refresh as a reviewed
+  exception** for `workbench-core`'s CI pattern scanner, which gained a
+  check for `--gpg-auto-import-keys` in its WP9 (security review M4).
+  The call was already correctly scoped to the `snappy` repo alone, not
+  a bare `refresh` that would auto-import keys for every configured
+  repo — no behaviour change, just the annotation and a comment
+  explaining why it's safe.
+
 ## [0.3.1] - 2026-09-25
 
 ### Changed
