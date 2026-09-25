@@ -40,7 +40,7 @@ _gh_release_asset_url() {
 # ── nvm install ──────────────────────────────────────────────────────────────
 
 _nvm_latest_version() {
-    curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest 2>/dev/null \
+    curl -fsS https://api.github.com/repos/nvm-sh/nvm/releases/latest \
         | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' \
         | head -1
@@ -249,8 +249,14 @@ _edit_install_from_api_response() {
     local asset_name; asset_name="$(basename "${download_url}")"
     local tmp_dir;    tmp_dir="$(mktemp -d)"
 
+    local digest
+    digest="$(_wb_gh_asset_digest "${api_response}" "${download_url}")"
+    if [[ -z "${digest}" ]]; then
+        log_error "No published SHA-256 for ${asset_name} — refusing to install (security review M3)"
+        rm -rf "${tmp_dir}"; return 1
+    fi
     log_info "Downloading ${asset_name}..."
-    if ! _download_file_robust "${download_url}" "${tmp_dir}/${asset_name}"; then
+    if ! _wb_fetch_verified "${download_url}" "${tmp_dir}/${asset_name}" "${digest}"; then
         rm -rf "${tmp_dir}"; return 1
     fi
 
@@ -282,7 +288,8 @@ install-edit() {
     command -v tar  &>/dev/null || { log_error "tar is required"; return 1; }
 
     local api_response ver
-    api_response="$(curl -s https://api.github.com/repos/microsoft/edit/releases/latest)"
+    api_response="$(curl -fsS https://api.github.com/repos/microsoft/edit/releases/latest)" \
+        || { log_error "edit: could not query the latest release (network or GitHub API rate limit)"; return 1; }
     ver="$(printf '%s' "${api_response}" | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
     [[ -z "${ver}" ]] && { log_error "Could not determine latest edit version"; return 1; }
@@ -304,9 +311,8 @@ install-edit-version() {
 
     log_info "Installing Microsoft Edit ${target_version}..."
     local api_response
-    api_response="$(curl -s "https://api.github.com/repos/microsoft/edit/releases/tags/${target_version}")"
-    printf '%s' "${api_response}" | grep -q '"message": *"Not Found"' \
-        && { log_error "Version ${target_version} not found on GitHub"; return 1; }
+    api_response="$(curl -fsS "https://api.github.com/repos/microsoft/edit/releases/tags/${target_version}")" \
+        || { log_error "edit: version ${target_version} not found on GitHub, or the release query failed (network or rate limit)"; return 1; }
 
     _edit_install_from_api_response "${api_response}" "${target_version}"
 }
@@ -348,7 +354,8 @@ _jq-install-binary() {
     command -v curl &>/dev/null || { log_error "curl is required"; return 1; }
 
     local api_response ver arch url tmp_dir
-    api_response="$(curl -s https://api.github.com/repos/jqlang/jq/releases/latest)"
+    api_response="$(curl -fsS https://api.github.com/repos/jqlang/jq/releases/latest)" \
+        || { log_error "jq: could not query the latest release (network or GitHub API rate limit)"; return 1; }
     # jq tags are `jq-1.7.1`, not `v1.7.1`
     ver="$(printf '%s' "${api_response}" | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"jq-([^"]+)".*/\1/' | head -1)"
@@ -364,8 +371,11 @@ _jq-install-binary() {
     url="$(_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
     [[ -z "${url}" ]] && { log_error "jq: no matching asset for linux/${arch}"; return 1; }
 
+    local digest
+    digest="$(_wb_gh_asset_digest "${api_response}" "${url}")"
+    [[ -z "${digest}" ]] && digest="sums:https://github.com/jqlang/jq/releases/download/jq-${ver}/sha256sum.txt"
     tmp_dir="$(mktemp -d)"
-    _download_file_robust "${url}" "${tmp_dir}/jq" || { rm -rf "${tmp_dir}"; return 1; }
+    _wb_fetch_verified "${url}" "${tmp_dir}/jq" "${digest}" "${url##*/}" || { rm -rf "${tmp_dir}"; return 1; }
     mkdir -p "${HOME}/.local/bin"
     install -m 755 "${tmp_dir}/jq" "${HOME}/.local/bin/jq"
     rm -rf "${tmp_dir}"
@@ -403,53 +413,79 @@ installed-jq() {
 
 # ── uv install ────────────────────────────────────────────────────────────────
 #
-# Astral's official standalone installer, run with UV_NO_MODIFY_PATH=1.
+# Fedora's own dnf repository, then a Homebrew formula on macOS, then a
+# verified GitHub release tarball — never astral.sh's installer, which
+# piped straight into a shell with no chance to verify anything first
+# (security review M3).
 #
-# UV_NO_MODIFY_PATH is load-bearing, not optional. By default the installer
-# appends PATH exports to every shell profile it finds — workbench-core's rc
-# files are plain stubs (not git-tracked symlinks, unlike the precursor), so
-# there's no sync-timer hazard here, but an unguarded run would still leave
-# a stray, redundant PATH line workbench-core itself already manages via
-# shell/development.sh's ~/.local/bin wiring (inherited from Core API's own
-# env tier). Setting the variable prevents the duplication rather than
-# cleaning it up after the fact.
-#
-# UV_UNMANAGED_INSTALL is deliberately NOT used — it disables `uv self
-# update`, which users rely on to keep uv current.
-#
-# No UV_INSTALL_DIR override: the installer's default — the XDG "executable
-# directory", ~/.local/bin on both Linux and macOS — is already on PATH via
-# workbench-core's own env tier.
+# No UV_INSTALL_DIR-equivalent override needed: ~/.local/bin (the release
+# tarball's install target below) is already on PATH via workbench-core's
+# own env tier (shell/development.sh).
 
 install-uv() {
     log_info "Installing or updating uv..."
 
-    # set -o pipefail in a subshell, not the caller's shell: without it, a
-    # curl/wget failure (network error, 404) still leaves `sh` reading an
-    # empty pipe, which it treats as a no-op and exits 0 — masking the
-    # failure as success. Scoped to a subshell so this file never changes
-    # pipefail for the rest of the user's interactive session.
-    local rc
-    if command -v curl &>/dev/null; then
-        ( set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh )
-        rc=$?
-    elif command -v wget &>/dev/null; then
-        ( set -o pipefail; wget -qO- https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh )
-        rc=$?
-    else
-        log_error "curl or wget is required to install uv"
-        return 1
-    fi
-    if [[ ${rc} -ne 0 ]]; then
-        log_error "uv installer failed"
-        return 1
+    # Fedora ships uv in its own signed repositories (security review M3).
+    if [[ -f /etc/fedora-release ]] && command -v dnf &>/dev/null; then
+        local elevation_cmd; elevation_cmd="$(get-elevation-command)" || return 1
+        if ${elevation_cmd} dnf install -y uv; then
+            log_info "uv installed: $(uv --version 2>/dev/null)"
+            return 0
+        fi
+        log_warn "uv not available from Fedora repositories — falling back to the GitHub release"
     fi
 
-    if command -v uv &>/dev/null; then
-        log_info "uv installed: $(uv --version 2>/dev/null)"
-    else
-        log_warn "uv not found on PATH after install. Restart your shell or check ~/.local/bin."
+    if [[ "${WORKBENCH_OS}" == "Mac" ]] && command -v brew &>/dev/null; then
+        if brew list uv &>/dev/null; then brew upgrade uv; else brew install uv; fi
+        return $?
     fi
+
+    _uv-install-release
+}
+
+# _uv-install-release
+# Latest GitHub release archive, verified against its published .sha256,
+# installed to ~/.local/bin (the same place astral's script used).
+_uv-install-release() {
+    command -v curl &>/dev/null || { log_error "uv: curl is required"; return 1; }
+    command -v tar  &>/dev/null || { log_error "uv: tar is required"; return 1; }
+
+    local api_response tag triple asset url tmp_dir dir
+    api_response="$(curl -fsS https://api.github.com/repos/astral-sh/uv/releases/latest)" \
+        || { log_error "uv: could not query the latest release (network or GitHub API rate limit)"; return 1; }
+    tag="$(printf '%s' "${api_response}" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' | head -1)"
+    [[ -z "${tag}" ]] && { log_error "uv: could not determine the latest version"; return 1; }
+
+    case "${WORKBENCH_OS}/${WORKBENCH_ARCH}" in
+        Linux/x86_64)               triple="x86_64-unknown-linux-gnu" ;;
+        Linux/aarch64|Linux/arm64)  triple="aarch64-unknown-linux-gnu" ;;
+        Mac/x86_64)                 triple="x86_64-apple-darwin" ;;
+        Mac/arm64|Mac/aarch64)      triple="aarch64-apple-darwin" ;;
+        *) log_error "uv: unsupported platform ${WORKBENCH_OS}/${WORKBENCH_ARCH}"; return 1 ;;
+    esac
+
+    asset="uv-${triple}.tar.gz"
+    url="https://github.com/astral-sh/uv/releases/download/${tag}/${asset}"
+    # Explicit template (trailing X's), not a bare `mktemp -d`: portable
+    # across GNU and BSD/macOS mktemp alike.
+    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uv-install.XXXXXX")" || return 1
+    _wb_fetch_verified "${url}" "${tmp_dir}/${asset}" "hashfile:${url}.sha256" \
+        || { rm -rf "${tmp_dir}"; return 1; }
+    tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}" \
+        || { log_error "uv: failed to extract ${asset}"; rm -rf "${tmp_dir}"; return 1; }
+
+    dir="${tmp_dir}/uv-${triple}"
+    [[ -x "${dir}/uv" && -x "${dir}/uvx" ]] \
+        || { log_error "uv: binaries not found in ${asset}"; rm -rf "${tmp_dir}"; return 1; }
+    mkdir -p "${HOME}/.local/bin"
+    if ! install -m 755 "${dir}/uv" "${HOME}/.local/bin/uv" \
+        || ! install -m 755 "${dir}/uvx" "${HOME}/.local/bin/uvx"; then
+        log_error "uv: failed to install into ~/.local/bin"
+        rm -rf "${tmp_dir}"
+        return 1
+    fi
+    rm -rf "${tmp_dir}"
+    log_info "uv ${tag} installed to ~/.local/bin"
 }
 
 installed-uv() {
