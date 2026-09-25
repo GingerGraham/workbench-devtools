@@ -456,7 +456,9 @@ _uv-install-release() {
 
     asset="uv-${triple}.tar.gz"
     url="https://github.com/astral-sh/uv/releases/download/${tag}/${asset}"
-    tmp_dir="$(mktemp -d)" || return 1
+    # Explicit template (trailing X's), not a bare `mktemp -d`: portable
+    # across GNU and BSD/macOS mktemp alike.
+    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uv-install.XXXXXX")" || return 1
     _wb_fetch_verified "${url}" "${tmp_dir}/${asset}" "hashfile:${url}.sha256" \
         || { rm -rf "${tmp_dir}"; return 1; }
     tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}" \
