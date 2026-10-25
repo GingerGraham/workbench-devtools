@@ -75,14 +75,15 @@ export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
 
 # nvm/node/npm/npx below are only ever defined once the nvm.sh presence
 # check passes, but get-devtools-functions' static-grep listing can't see
-# that runtime guard, so without this it would list all four even on
-# hosts without nvm installed. Declared unconditionally, ahead of the
-# guard, so the predicate itself still exists (and correctly says
-# "unavailable") on a host without nvm — declaring it inside the guard
-# would mean it's never defined there either, and an undeclared predicate
-# defaults to available.
+# that runtime guard, so without a predicate it would list all four even on
+# hosts without nvm installed. _nvm_present is defined unconditionally,
+# ahead of the guard, so it exists (and correctly says "unavailable") on a
+# host without nvm. It is wired to those names in shell/devtools.sh
+# (tier: tools): _wb_alias_availability is Core API from core's own
+# core-tier files, which aren't loaded yet when this env-tier file runs —
+# calling it here printed "command not found" on every shell start
+# (workbench-core docs/decisions-log.md D94).
 _nvm_present() { [[ -s "${NVM_DIR}/nvm.sh" ]]; }
-_wb_alias_availability _nvm_present nvm node npm npx
 
 if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
     _load_nvm() {

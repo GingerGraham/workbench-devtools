@@ -6,6 +6,12 @@
 # read-only informational helper meant to be called directly from the shell.
 # Ported from workbench-precursor's lazy/installers-dev.sh.
 
+# nvm/node/npm/npx are only defined when nvm is installed; the predicate
+# _nvm_present lives in shell/development.sh (tier: env). Wired up here, at
+# tier: tools, because _wb_alias_availability (Core API 1.2) comes from
+# core's core-tier files, which load after the env tier.
+_wb_alias_availability _nvm_present nvm node npm npx
+
 list-edit-releases() {
     curl -s https://api.github.com/repos/microsoft/edit/releases \
         | grep -o '"tag_name": *"[^"]*"' \
