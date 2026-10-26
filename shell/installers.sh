@@ -15,11 +15,9 @@
 # platform facts (contracts/core-api.md), replacing the precursor's
 # DOTFILES_OS/DOTFILES_DISTRO. _download_file_robust/get-elevation-command/
 # detect-package-manager/_str_lower/_read_prompt come from workbench-core's
-# Core API (lib/core/installers-common.sh). _gh_release_asset_url is
-# duplicated locally below (small enough that per-module duplication is the
-# accepted norm here — see workbench-git's/workbench-desktop's own copies
-# and ARCHITECTURE.md §12 D34 for the bar actually applied to promote a
-# helper to Core API instead).
+# Core API (lib/core/installers-common.sh), as does _wb_gh_release_asset_url
+# (Core API 1.8, workbench-core docs/decisions-log.md D90), which replaced
+# this module's own private copy.
 #
 # _restore_managed_shell_files (called at the end of the precursor's
 # install-nvm, to reset installer-injected PATH lines in git-tracked rc
@@ -27,15 +25,6 @@
 # precursor, workbench-core's rc files are plain stubs written once by
 # `wb install`/`wb apply`, not live symlinks into a git working tree, so
 # there is nothing to restore.
-
-_gh_release_asset_url() {
-    local api_response="$1" pattern="$2"
-    printf '%s' "${api_response}" \
-        | grep -Eo '"browser_download_url": *"[^"]+"' \
-        | sed -E 's/.*"(https[^"]+)"/\1/' \
-        | grep -E "${pattern}" \
-        | head -1
-}
 
 # ── nvm install ──────────────────────────────────────────────────────────────
 
@@ -203,7 +192,7 @@ _edit_arch_stem() {
 # _edit_asset_url <api_response> <stem>
 _edit_asset_url() {
     local api_response="$1" stem="$2"
-    _gh_release_asset_url "${api_response}" "${stem}"
+    _wb_gh_release_asset_url "${api_response}" "${stem}"
 }
 
 # _edit_extract <archive> <dest_dir>
@@ -368,7 +357,7 @@ _jq-install-binary() {
     esac
 
     # Asset naming changed in 1.7: jq-linux64 → jq-linux-amd64
-    url="$(_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
+    url="$(_wb_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
     [[ -z "${url}" ]] && { log_error "jq: no matching asset for linux/${arch}"; return 1; }
 
     local digest

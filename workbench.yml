@@ -10,7 +10,7 @@
 version: 2
 branch: main
 
-core_api: ">=1.4 <2.0"
+core_api: ">=1.8 <2.0"
 sync:
   enabled: true
 
@@ -32,4 +32,4 @@ register:
   getters:
     - name: devtools
       function: get-devtools-functions
-      label: "Go/Python/Node dev environment + nvm/edit/jq/uv/snapd installers"
+      label: "Devtools"
