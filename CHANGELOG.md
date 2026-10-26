@@ -4,6 +4,8 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-26
+
 ### Fixed
 
 - **Shell start no longer prints `_wb_alias_availability: command not
