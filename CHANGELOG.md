@@ -31,6 +31,11 @@ All notable changes to `workbench-devtools` are documented here.
 
 ### Fixed
 
+- **zsh with `uv` installed no longer prints `command not found: compdef`
+  at start.** The cached uv completion is sourced only after zsh's
+  completion system is initialised, with the same guard workbench-core
+  uses for `wb`'s own completions.
+
 - **`get-devtools-functions` lists this module's functions in zsh.** The
   hand-written getter used `${BASH_SOURCE[0]}`, which zsh doesn't set, so
   in zsh it printed a header and `(none)`.
