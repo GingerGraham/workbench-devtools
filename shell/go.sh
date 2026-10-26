@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shell/go.sh — workbench-devtools
-# Go version helpers. Registered at tier: tools (.dotfiles-sync.yml), sourced
+# Go version helpers. Registered at tier: tools (workbench.yml), sourced
 # unconditionally; guards internally on `command -v go`.
 # Ported from workbench-precursor's shell/config/tools/go.sh, unchanged
 # other than the log_debug call moving inline (no behaviour change).

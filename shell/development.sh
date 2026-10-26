@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shell/development.sh — workbench-devtools
 # Cross-cutting dev-environment PATH/env wiring: Go, Python (uv/pyenv), Node
-# (nvm), tfenv, Cargo, asdf. Registered at tier: env
-# (.dotfiles-sync.yml) — runs early, alongside workbench-core's own env
+# (nvm), Cargo, asdf. Registered at tier: env
+# (workbench.yml) — runs early, alongside workbench-core's own env
 # tier, so these exports are in place before tools/platform/distro/lazy
 # tiers load.
 #
@@ -11,6 +11,12 @@
 # tenv's auto-install is not forced on here: it is opt-in, as workbench-iac
 # says. `export TENV_AUTO_INSTALL=true` in
 # ~/.config/workbench/local/settings.sh to turn it on.
+#
+# tfenv is no longer wired up here: workbench doesn't manage it (workbench-core
+# docs/decisions-log.md D103). `wb tools install terraform` (workbench-iac)
+# installs terraform directly, and `wb tools install tenv` installs tenv. To
+# keep using tfenv, put ~/.tfenv/bin on PATH in
+# ~/.config/workbench/local/settings.sh.
 #
 # WORKBENCH_SHELL replaces DOTFILES_SHELL (Core API rename,
 # contracts/core-api.md).
@@ -108,12 +114,6 @@ if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
     node() { _load_nvm; node "$@"; }
     npm()  { _load_nvm; npm  "$@"; }
     npx()  { _load_nvm; npx  "$@"; }
-fi
-
-# ── tfenv ──
-if [[ -d "${HOME}/.tfenv" ]]; then
-    export TFENV_ROOT="${HOME}/.tfenv"
-    PATH="${TFENV_ROOT}/bin:${PATH}"
 fi
 
 # ── Cargo (Rust) ──

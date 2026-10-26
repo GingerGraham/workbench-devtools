@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shell/devtools.sh — workbench-devtools
-# list-edit-releases. Registered at tier: tools (.dotfiles-sync.yml) so this
+# list-edit-releases. Registered at tier: tools (workbench.yml) so this
 # is reachable interactively — unlike the install-* functions in
 # shell/installers.sh, which `wb tools` only sources transiently, this is a
 # read-only informational helper meant to be called directly from the shell.
@@ -10,10 +10,10 @@
 # _nvm_present lives in shell/development.sh (tier: env). Wired up here, at
 # tier: tools, because _wb_alias_availability (Core API 1.2) comes from
 # core's core-tier files, which load after the env tier.
-_wb_alias_availability _nvm_present nvm node npm npx
+_wb_alias_availability --needs "nvm (~/.nvm/nvm.sh)" --install nvm _nvm_present nvm node npm npx
 
 list-edit-releases() {
-    curl -s https://api.github.com/repos/microsoft/edit/releases \
+    curl -fsS https://api.github.com/repos/microsoft/edit/releases \
         | grep -o '"tag_name": *"[^"]*"' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' \
         | head -10
