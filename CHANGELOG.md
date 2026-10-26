@@ -4,6 +4,16 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Shell start no longer prints `_wb_alias_availability: command not
+  found`.** The nvm/node/npm/npx availability declaration ran in the env
+  tier, before core's Core API functions are loaded; it now runs from
+  `shell/devtools.sh` (tools tier). As a result those four names are now
+  correctly listed as needing nvm on hosts without it, instead of as
+  available. Required by workbench-core's module CI clean-shell check (its
+  `docs/decisions-log.md` D94).
+
 ### Security
 
 - **Annotated the snapd/snappy zypper key refresh as a reviewed
