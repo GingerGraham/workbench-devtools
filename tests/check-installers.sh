@@ -17,6 +17,18 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/devtools-installers.XXXXXX")"
 trap 'rm -rf "${WORK}"' EXIT
 CALLS="${WORK}/calls.log"
 
+# A PATH of the host's tools minus snap: a runner with snapd installed
+# (GitHub's ubuntu images) would otherwise make install-snapd skip
+# straight to "snap binary already present".
+SANDBOX_BIN="${WORK}/bin"
+mkdir -p "${SANDBOX_BIN}"
+for _tool in /usr/bin/* /bin/*; do
+    _name="$(basename "${_tool}")"
+    case "${_name}" in snap|snapctl) continue ;; esac
+    [[ -e "${SANDBOX_BIN}/${_name}" ]] || ln -s "${_tool}" "${SANDBOX_BIN}/${_name}"
+done
+unset _tool _name
+
 # _run <snippet>
 # Runs <snippet> in a fresh bash with Core API and external commands
 # stubbed; every stubbed command appends "<name> <args>" to ${CALLS}.
@@ -24,7 +36,7 @@ CALLS="${WORK}/calls.log"
 _run() {
     : > "${CALLS}"
     # shellcheck disable=SC2016 # expanded by the inner shell, not here
-    env -i PATH="/usr/bin:/bin" HOME="${WORK}/home" CALLS="${CALLS}" \
+    env -i PATH="${SANDBOX_BIN}" HOME="${WORK}/home" CALLS="${CALLS}" \
         INSTALLERS="${REPO_ROOT}/shell/installers.sh" SNIPPET="$1" \
         bash -c '
             log_info()  { echo "[INFO] $*"; }
@@ -75,10 +87,10 @@ fi
 
 # ── snapd on openSUSE: never auto-import the repo's key (N8) ──
 
-if grep -vE '^[[:space:]]*#' "${REPO_ROOT}/shell/installers.sh" | grep -q -- '--gpg-auto-import-keys'; then
-    fail "shell/installers.sh still passes --gpg-auto-import-keys"
+if grep -vE '^[[:space:]]*#' "${REPO_ROOT}/shell/installers.sh" | grep -q -- '--gpg-auto-import-keys'; then  # pattern-scan:ignore -- test asserts the flag is absent
+    fail "shell/installers.sh still passes --gpg-auto-import-keys"  # pattern-scan:ignore -- test failure message
 else
-    ok "no --gpg-auto-import-keys in shell/installers.sh"
+    ok "no --gpg-auto-import-keys in shell/installers.sh"  # pattern-scan:ignore -- test success message
 fi
 
 # shellcheck disable=SC2016 # expanded by the inner shell, not here
@@ -124,7 +136,7 @@ mkdir -p "${WORK}/home/.tfenv/bin"
 for sh in bash zsh; do
     command -v "${sh}" &>/dev/null || { echo "SKIP: ${sh} not installed -- development.sh tfenv check"; continue; }
     # shellcheck disable=SC2016 # expanded by the inner shell, not here
-    out="$(env -i PATH="/usr/bin:/bin" HOME="${WORK}/home" "${sh}" -c \
+    out="$(env -i PATH="${SANDBOX_BIN}" HOME="${WORK}/home" "${sh}" -c \
         'log_debug() { :; }; source "$1"; printf "%s|%s\n" "${TFENV_ROOT:-}" "${PATH}"' _ \
         "${REPO_ROOT}/shell/development.sh" 2>&1)"
     if [[ "${out}" != *".tfenv"* ]]; then
@@ -139,7 +151,7 @@ done
 for sh in bash zsh; do
     command -v "${sh}" &>/dev/null || { echo "SKIP: ${sh} not installed -- devtools.sh availability check"; continue; }
     # shellcheck disable=SC2016 # expanded by the inner shell, not here
-    out="$(env -i PATH="/usr/bin:/bin" HOME="${WORK}/home" "${sh}" -c \
+    out="$(env -i PATH="${SANDBOX_BIN}" HOME="${WORK}/home" "${sh}" -c \
         '_wb_alias_availability() { printf "<%s>" "$@"; echo; }; source "$1"' _ \
         "${REPO_ROOT}/shell/devtools.sh" 2>&1)"
     if [[ "${out}" == "<--needs><nvm (~/.nvm/nvm.sh)><--install><nvm><_nvm_present><nvm><node><npm><npx>" ]]; then
