@@ -4,6 +4,8 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-27
+
 ### Added
 
 - **`EDIT_VERSION`** pins the release `wb tools install edit` installs
