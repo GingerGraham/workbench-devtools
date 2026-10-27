@@ -45,6 +45,15 @@ for key in version core_api register; do
     fi
 done
 
+# Core API 1.8 generates get-devtools-functions from register.getters[]
+# (workbench-core docs/decisions-log.md D89) and ships
+# _wb_gh_release_asset_url (D90), both of which this module relies on.
+if [[ -n "${MANIFEST}" ]] && grep -qE '^core_api:[[:space:]]*">=1\.8 <2\.0"[[:space:]]*$' "${MANIFEST}"; then
+    ok "manifest declares core_api \">=1.8 <2.0\""
+else
+    fail "manifest core_api is not \">=1.8 <2.0\""
+fi
+
 if [[ -n "${MANIFEST}" ]]; then
     while IFS= read -r src; do
         [[ -z "${src}" ]] && continue
@@ -59,6 +68,7 @@ fi
 # list-edit-releases is a read-only interactive helper -- must live in a
 # register.shell file, not register.installers (wb tools only sources the
 # latter transiently to invoke one install-<name> function).
+# shellcheck disable=SC2043 # one name today; a list so more can be added
 for fn in list-edit-releases; do
     if grep -qE "^${fn}[[:space:]]*\(\)" "${REPO_ROOT}/shell/devtools.sh" 2>/dev/null; then
         ok "${fn} is in shell/devtools.sh (register.shell)"
@@ -66,6 +76,36 @@ for fn in list-edit-releases; do
         fail "${fn} not found in shell/devtools.sh -- would be unreachable interactively if only in installers.sh"
     fi
 done
+
+# No hand-written getter: core defines get-devtools-functions from the
+# manifest, and works in zsh. A hand-written one would win over core's, and
+# the old one used ${BASH_SOURCE[0]} inside a function, which zsh doesn't set.
+if ! grep -rqE '^[[:space:]]*(function[[:space:]]+)?get-[a-z-]+-functions' "${REPO_ROOT}/shell/"; then
+    ok "shell/ defines no get-*-functions getter (core generates it)"
+else
+    fail "shell/ defines a get-*-functions getter -- delete it; core generates it from register.getters[]"
+fi
+
+# The module's getter is declared in the manifest, for core to generate.
+if [[ -n "${MANIFEST}" ]] && grep -qE '^[[:space:]]*function:[[:space:]]*get-devtools-functions[[:space:]]*$' "${MANIFEST}"; then
+    ok "manifest declares register.getters[] get-devtools-functions"
+else
+    fail "manifest does not declare get-devtools-functions in register.getters[]"
+fi
+
+# The shared helper comes from core; no private copy.
+if ! grep -rqE '^[[:space:]]*_gh_release_asset_url[[:space:]]*\(\)' "${REPO_ROOT}/shell/"; then
+    ok "no private _gh_release_asset_url (uses core's _wb_gh_release_asset_url)"
+else
+    fail "shell/ defines a private _gh_release_asset_url -- call core's _wb_gh_release_asset_url"
+fi
+
+# tenv auto-install is opt-in (workbench-iac), never forced on by this module.
+if grep -vE '^[[:space:]]*#' "${REPO_ROOT}/shell/development.sh" | grep -q 'TENV_AUTO_INSTALL'; then
+    fail "shell/development.sh sets TENV_AUTO_INSTALL -- it is the user's opt-in"
+else
+    ok "shell/development.sh leaves TENV_AUTO_INSTALL to the user"
+fi
 
 # _dotfiles_init_python_manager must NOT be auto-invoked at source time --
 # workbench-core's loader has no post-local-overrides hook to call it safely,

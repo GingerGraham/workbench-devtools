@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 # shell/development.sh — workbench-devtools
 # Cross-cutting dev-environment PATH/env wiring: Go, Python (uv/pyenv), Node
-# (nvm), tfenv, Cargo, asdf, tenv. Registered at tier: env
-# (.dotfiles-sync.yml) — runs early, alongside workbench-core's own env
+# (nvm), Cargo, asdf. Registered at tier: env
+# (workbench.yml) — runs early, alongside workbench-core's own env
 # tier, so these exports are in place before tools/platform/distro/lazy
 # tiers load.
 #
 # Ported from workbench-precursor's shell/config/env/20-development.sh.
+#
+# tenv's auto-install is not forced on here: it is opt-in, as workbench-iac
+# says. `export TENV_AUTO_INSTALL=true` in
+# ~/.config/workbench/local/settings.sh to turn it on.
+#
+# tfenv is no longer wired up here: workbench doesn't manage it (workbench-core
+# docs/decisions-log.md D103). `wb tools install terraform` (workbench-iac)
+# installs terraform directly, and `wb tools install tenv` installs tenv. To
+# keep using tfenv, put ~/.tfenv/bin on PATH in
+# ~/.config/workbench/local/settings.sh.
 #
 # WORKBENCH_SHELL replaces DOTFILES_SHELL (Core API rename,
 # contracts/core-api.md).
@@ -23,7 +33,11 @@
 # setting WORKBENCH_PYTHON_MANAGER there:
 #
 #   WORKBENCH_PYTHON_MANAGER=pyenv
-#   _dotfiles_init_python_manager
+#   command -v _dotfiles_init_python_manager &>/dev/null && _dotfiles_init_python_manager
+#
+# The `command -v` guard matters: the loader sources settings.sh twice, once
+# before the module tiers (when this function doesn't exist yet, so the
+# guard skips it) and again after them (when it runs).
 #
 # If this pattern turns out to be needed by other modules too, promoting a
 # generic post-local-overrides hook to the Core API is the right fix —
@@ -102,20 +116,11 @@ if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
     npx()  { _load_nvm; npx  "$@"; }
 fi
 
-# ── tfenv ──
-if [[ -d "${HOME}/.tfenv" ]]; then
-    export TFENV_ROOT="${HOME}/.tfenv"
-    PATH="${TFENV_ROOT}/bin:${PATH}"
-fi
-
 # ── Cargo (Rust) ──
 [[ -d "${HOME}/.cargo/bin" ]] && PATH="${HOME}/.cargo/bin:${PATH}"
 
 # ── asdf ──
 # shellcheck disable=SC1091
 [[ -s "${HOME}/.asdf/asdf.sh" ]] && source "${HOME}/.asdf/asdf.sh"
-
-# ── tenv ──
-command -v tenv &>/dev/null && export TENV_AUTO_INSTALL=true
 
 export PATH

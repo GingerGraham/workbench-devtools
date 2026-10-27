@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # shell/installers.sh — workbench-devtools
-# install-nvm, install-edit, install-edit-version, install-jq, install-uv,
-# install-snapd. (list-edit-releases lives in shell/devtools.sh instead —
-# register.shell content, not register.installers, since `wb tools` only
+# install-nvm, install-edit, install-jq, install-uv, install-snapd, run by
+# `wb tools install|upgrade <name>`. (list-edit-releases lives in
+# shell/devtools.sh instead — register.shell content, not register.installers, since `wb tools` only
 # sources this file transiently to invoke one install-<name> function; that
 # one is a read-only helper meant to be called directly from an interactive
 # shell.)
+#
+# Installers take no positional arguments (workbench-core
+# docs/decisions-log.md D102). Pin a Microsoft Edit release with
+# EDIT_VERSION: `EDIT_VERSION=v2.0.0 wb tools install edit`.
 #
 # Ported from workbench-precursor's lazy/installers-dev.sh,
 # lazy/installers-python.sh, and lazy/installers-system.sh (snapd slice —
@@ -15,11 +19,9 @@
 # platform facts (contracts/core-api.md), replacing the precursor's
 # DOTFILES_OS/DOTFILES_DISTRO. _download_file_robust/get-elevation-command/
 # detect-package-manager/_str_lower/_read_prompt come from workbench-core's
-# Core API (lib/core/installers-common.sh). _gh_release_asset_url is
-# duplicated locally below (small enough that per-module duplication is the
-# accepted norm here — see workbench-git's/workbench-desktop's own copies
-# and ARCHITECTURE.md §12 D34 for the bar actually applied to promote a
-# helper to Core API instead).
+# Core API (lib/core/installers-common.sh), as does _wb_gh_release_asset_url
+# (Core API 1.8, workbench-core docs/decisions-log.md D90), which replaced
+# this module's own private copy.
 #
 # _restore_managed_shell_files (called at the end of the precursor's
 # install-nvm, to reset installer-injected PATH lines in git-tracked rc
@@ -27,15 +29,6 @@
 # precursor, workbench-core's rc files are plain stubs written once by
 # `wb install`/`wb apply`, not live symlinks into a git working tree, so
 # there is nothing to restore.
-
-_gh_release_asset_url() {
-    local api_response="$1" pattern="$2"
-    printf '%s' "${api_response}" \
-        | grep -Eo '"browser_download_url": *"[^"]+"' \
-        | sed -E 's/.*"(https[^"]+)"/\1/' \
-        | grep -E "${pattern}" \
-        | head -1
-}
 
 # ── nvm install ──────────────────────────────────────────────────────────────
 
@@ -203,7 +196,7 @@ _edit_arch_stem() {
 # _edit_asset_url <api_response> <stem>
 _edit_asset_url() {
     local api_response="$1" stem="$2"
-    _gh_release_asset_url "${api_response}" "${stem}"
+    _wb_gh_release_asset_url "${api_response}" "${stem}"
 }
 
 # _edit_extract <archive> <dest_dir>
@@ -226,7 +219,7 @@ _edit_extract() {
 }
 
 # _edit_install_from_api_response <api_response> <display_version>
-#   Shared implementation used by both install-edit and install-edit-version.
+#   Installs the release described by <api_response> (install-edit).
 _edit_install_from_api_response() {
     local api_response="$1" display_ver="$2"
     local normalized_ver="${display_ver#v}"
@@ -287,34 +280,25 @@ install-edit() {
     command -v curl &>/dev/null || { log_error "curl is required"; return 1; }
     command -v tar  &>/dev/null || { log_error "tar is required"; return 1; }
 
-    local api_response ver
-    api_response="$(curl -fsS https://api.github.com/repos/microsoft/edit/releases/latest)" \
-        || { log_error "edit: could not query the latest release (network or GitHub API rate limit)"; return 1; }
+    # EDIT_VERSION=v2.0.0 wb tools install edit pins a release (D102).
+    local api_response ver api_url="https://api.github.com/repos/microsoft/edit/releases/latest"
+    if [[ -n "${EDIT_VERSION:-}" ]]; then
+        printf '%s' "${EDIT_VERSION}" | grep -Eq '^v?[0-9]+(\.[0-9]+)*$' \
+            || { log_error "edit: EDIT_VERSION must look like v2.0.0, not '${EDIT_VERSION}'"; return 1; }
+        api_url="https://api.github.com/repos/microsoft/edit/releases/tags/${EDIT_VERSION}"
+    fi
+    api_response="$(curl -fsS "${api_url}")" \
+        || { log_error "edit: could not query ${EDIT_VERSION:-the latest} release (not found, network or GitHub API rate limit)"; return 1; }
     ver="$(printf '%s' "${api_response}" | grep '"tag_name":' \
         | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-    [[ -z "${ver}" ]] && { log_error "Could not determine latest edit version"; return 1; }
+    [[ -z "${ver}" ]] && { log_error "Could not determine the edit version"; return 1; }
 
-    log_info "Latest version: ${ver}"
+    log_info "Version: ${ver}"
     _edit_install_from_api_response "${api_response}" "${ver}"
 }
 
 installed-edit() {
     command -v edit &>/dev/null
-}
-
-install-edit-version() {
-    local target_version="$1"
-    [[ -z "${target_version}" ]] && { log_error "Usage: install-edit-version <version>  (e.g. v2.0.0)"; return 1; }
-
-    command -v curl &>/dev/null || { log_error "curl is required"; return 1; }
-    command -v tar  &>/dev/null || { log_error "tar is required"; return 1; }
-
-    log_info "Installing Microsoft Edit ${target_version}..."
-    local api_response
-    api_response="$(curl -fsS "https://api.github.com/repos/microsoft/edit/releases/tags/${target_version}")" \
-        || { log_error "edit: version ${target_version} not found on GitHub, or the release query failed (network or rate limit)"; return 1; }
-
-    _edit_install_from_api_response "${api_response}" "${target_version}"
 }
 
 # ── jq install ─────────────────────────────────────────────────────────────────
@@ -368,7 +352,7 @@ _jq-install-binary() {
     esac
 
     # Asset naming changed in 1.7: jq-linux64 → jq-linux-amd64
-    url="$(_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
+    url="$(_wb_gh_release_asset_url "${api_response}" "jq-linux-(${arch}|64)$")"
     [[ -z "${url}" ]] && { log_error "jq: no matching asset for linux/${arch}"; return 1; }
 
     local digest
@@ -537,17 +521,26 @@ install-snapd() {
                 fi
 
                 if ! zypper lr 2>/dev/null | grep -qi 'snappy'; then
-                    ${elevation_cmd} zypper addrepo --refresh "${opensuse_repo_url}" snappy
-                    # Scoped to the snappy repo alone — a bare `refresh`
-                    # auto-imports signing keys for every configured repo,
-                    # not only the one just added (security review M4).
-                    ${elevation_cmd} zypper --gpg-auto-import-keys refresh snappy  # pattern-scan:ignore -- scoped to a single named repo, not a bare refresh (see comment above)
-                else
-                    log_info "snapd: snappy repo already present"
+                    # No pinned key for the snappy repo, and auto-importing
+                    # whatever key it serves makes that key a root trust
+                    # anchor (security status N8). Leave adding it to you.
+                    log_error "snapd: add the openSUSE snappy repository and accept its key yourself (snapcraft.io/docs/installing-snap-on-opensuse), then run 'wb tools install snapd' again:"
+                    log_error "  sudo zypper addrepo --refresh ${opensuse_repo_url} snappy && sudo zypper refresh snappy"
+                    return 1
                 fi
+                log_info "snapd: snappy repo present"
                 ${elevation_cmd} zypper install -y snapd
                 ;;
             arch)
+                # snapd is AUR-only on Arch: an unreviewed build script, run
+                # as you, then installed as root. Opt-in only
+                # (workbench-core docs/decisions-log.md D100).
+                if [[ "${WORKBENCH_ALLOW_AUR:-false}" != "true" ]]; then
+                    log_warn "snapd: on Arch it comes from the AUR, which workbench uses only with WORKBENCH_ALLOW_AUR=true in ~/.config/workbench/local/settings.sh. To install it yourself:"
+                    log_warn "  yay -S snapd"
+                    log_warn "  (or: git clone https://aur.archlinux.org/snapd.git && cd snapd && makepkg -si)"
+                    return 1
+                fi
                 if command -v yay &>/dev/null; then
                     yay -S --noconfirm snapd
                 else
