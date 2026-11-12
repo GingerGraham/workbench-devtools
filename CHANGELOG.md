@@ -17,6 +17,18 @@ All notable changes to `workbench-devtools` are documented here.
   bare `cd` or `ls` in sourced code and on any host alias baked into a
   function the module defines.
 
+- **`shell/development.sh` no longer stubs an `nvm` that is already
+  loaded.** When the user's own rc had sourced nvm (a real `nvm` function,
+  or a non-empty `NVM_BIN`), the lazy-load stubs replaced that function and
+  a stub `node` shadowed the real one until first use. The stubs are now
+  defined only when nvm is not already active. The check uses `declare -f`,
+  not `declare -F`, so it is also correct when zsh sources the file.
+- **`install-nvm` finds nvm in `${XDG_CONFIG_HOME}/nvm`.** `wb` runs as a
+  child of the user's shell, so `NVM_DIR` reaches it only if the rc file
+  exported it. When it is unset and `${XDG_CONFIG_HOME}/nvm` exists (where
+  nvm's own installer puts it), `install-nvm` and `installed-nvm` use that
+  directory instead of creating a second copy in `~/.nvm`.
+
 ### Changed
 
 - **Bug report template asks for OS family and environment separately.**

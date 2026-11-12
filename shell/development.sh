@@ -99,7 +99,17 @@ export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
 # (workbench-core docs/decisions-log.md D94).
 _nvm_present() { [[ -s "${NVM_DIR}/nvm.sh" ]]; }
 
-if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
+# Skip the stubs when nvm is already active in this shell — the user's own rc
+# sourced it (possibly from a different NVM_DIR than ${NVM_DIR} here), so a
+# real `nvm` function exists and node's bin directory is on PATH. Stubs would
+# replace that loaded `nvm` and shadow the real `node` until first use.
+# Detected by a defined `nvm` function, or a non-empty NVM_BIN (which nvm.sh
+# exports once a version is in use). `declare -f`, never `declare -F`: this
+# file is also sourced by zsh, where `declare -F nvm` does not test for a
+# function — it succeeds and creates a float variable named `nvm`.
+if [[ -s "${NVM_DIR}/nvm.sh" ]] \
+    && ! declare -f nvm >/dev/null 2>&1 \
+    && [[ -z "${NVM_BIN:-}" ]]; then
     _load_nvm() {
         for _nvm_fn in nvm node npm npx yarn pnpm; do
             declare -f "${_nvm_fn}" &>/dev/null && unset -f "${_nvm_fn}"

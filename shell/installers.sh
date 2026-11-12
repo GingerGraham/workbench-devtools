@@ -50,7 +50,7 @@ _nvm_handle_system_node() {
     # Only act on a real on-disk binary (skip nvm stub *functions* and nvm paths).
     [[ "${node_path}" == */* && -x "${node_path}" ]] || return 0
     case "${node_path}" in
-        *"/.nvm/"*) return 0 ;;
+        *"/.nvm/"*|"${NVM_DIR:-/nonexistent}/"*) return 0 ;;
     esac
 
     log_warn "A manually-installed Node.js was found:"
@@ -86,12 +86,29 @@ _nvm_handle_system_node() {
     esac
 }
 
+# The nvm directory: NVM_DIR when set, else ${XDG_CONFIG_HOME}/nvm if
+# XDG_CONFIG_HOME is set and that directory exists (where nvm's own
+# installer puts it), else ~/.nvm. `wb` runs as a subprocess of the user's
+# shell, so it only sees NVM_DIR if the rc file *exported* it — an rc file
+# that sets it without `export`, or a non-interactive caller (cron, ssh
+# command, the sync timer), leaves it unset here.
+_nvm_dir() {
+    if [[ -n "${NVM_DIR:-}" ]]; then
+        printf '%s' "${NVM_DIR}"
+    elif [[ -n "${XDG_CONFIG_HOME:-}" && -d "${XDG_CONFIG_HOME}/nvm" ]]; then
+        printf '%s' "${XDG_CONFIG_HOME}/nvm"
+    else
+        printf '%s' "${HOME}/.nvm"
+    fi
+}
+
 install-nvm() {
     log_info "Installing or updating nvm (Node Version Manager)..."
     command -v curl &>/dev/null || { log_error "curl is required"; return 1; }
     command -v git  &>/dev/null || log_warn "git not found — nvm self-update will be unavailable"
 
-    export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
+    NVM_DIR="$(_nvm_dir)"
+    export NVM_DIR
     mkdir -p "${NVM_DIR}" || { log_error "Failed to create ${NVM_DIR}"; return 1; }
 
     _nvm_handle_system_node
@@ -165,7 +182,7 @@ install-nvm() {
 # negative, not a usable check. The on-disk artifact install-nvm itself
 # checks (`[[ -s "${NVM_DIR}/nvm.sh" ]]`) is the only reliable signal.
 installed-nvm() {
-    [[ -s "${NVM_DIR:-${HOME}/.nvm}/nvm.sh" ]]
+    [[ -s "$(_nvm_dir)/nvm.sh" ]]
 }
 
 # ── Microsoft Edit install ────────────────────────────────────────────────────
