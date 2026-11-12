@@ -161,6 +161,59 @@ for sh in bash zsh; do
     fi
 done
 
+# ── install-nvm / installed-nvm: where nvm lives when NVM_DIR is not inherited ──
+# `wb tools` runs installers in a subshell of the wb process, which is a
+# child of the user's shell and so only sees exported variables. With
+# NVM_DIR lost, the XDG location nvm's own installer uses must still be found.
+
+_nvm_home="${WORK}/nvm-home"
+mkdir -p "${_nvm_home}/xdg/nvm" "${_nvm_home}/plain"
+echo '# fake nvm.sh' > "${_nvm_home}/xdg/nvm/nvm.sh"
+
+# _nvm_dir_with <env assignments...> — prints the directory _nvm_dir picks.
+_nvm_dir_with() {
+    # shellcheck disable=SC2016 # expanded by the inner shell, not here
+    env -i PATH="${SANDBOX_BIN}" "$@" INSTALLERS="${REPO_ROOT}/shell/installers.sh" \
+        bash -c 'source "${INSTALLERS}" >/dev/null 2>&1; _nvm_dir' 2>&1
+}
+
+out="$(_nvm_dir_with HOME="${_nvm_home}/plain" NVM_DIR=/explicit/nvm XDG_CONFIG_HOME="${_nvm_home}/xdg")"
+if [[ "${out}" == "/explicit/nvm" ]]; then
+    ok "_nvm_dir: an inherited NVM_DIR wins"
+else
+    fail "_nvm_dir: NVM_DIR was not honoured: ${out}"
+fi
+
+out="$(_nvm_dir_with HOME="${_nvm_home}/plain" XDG_CONFIG_HOME="${_nvm_home}/xdg")"
+if [[ "${out}" == "${_nvm_home}/xdg/nvm" ]]; then
+    ok "_nvm_dir: NVM_DIR unset, XDG_CONFIG_HOME/nvm exists: uses the XDG location"
+else
+    fail "_nvm_dir: expected the XDG location, got: ${out}"
+fi
+
+out="$(_nvm_dir_with HOME="${_nvm_home}/plain" XDG_CONFIG_HOME="${_nvm_home}/no-such-dir")"
+if [[ "${out}" == "${_nvm_home}/plain/.nvm" ]]; then
+    ok "_nvm_dir: XDG_CONFIG_HOME/nvm missing: falls back to ~/.nvm"
+else
+    fail "_nvm_dir: expected ~/.nvm, got: ${out}"
+fi
+
+out="$(_nvm_dir_with HOME="${_nvm_home}/plain")"
+if [[ "${out}" == "${_nvm_home}/plain/.nvm" ]]; then
+    ok "_nvm_dir: NVM_DIR and XDG_CONFIG_HOME unset: ~/.nvm"
+else
+    fail "_nvm_dir: expected ~/.nvm, got: ${out}"
+fi
+
+# shellcheck disable=SC2016 # expanded by the inner shell, not here
+if env -i PATH="${SANDBOX_BIN}" HOME="${_nvm_home}/plain" XDG_CONFIG_HOME="${_nvm_home}/xdg" \
+    INSTALLERS="${REPO_ROOT}/shell/installers.sh" \
+    bash -c 'source "${INSTALLERS}" >/dev/null 2>&1; installed-nvm'; then
+    ok "installed-nvm: finds nvm.sh in the XDG location when NVM_DIR is unset"
+else
+    fail "installed-nvm: missed nvm.sh in XDG_CONFIG_HOME/nvm"
+fi
+
 echo
 echo "==============================="
 echo "Total OK/FAIL checks: ${check_no}, failed: ${FAILED}"

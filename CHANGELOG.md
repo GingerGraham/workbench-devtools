@@ -4,6 +4,31 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Installers no longer run the host's `cd`, `cp` or `find` aliases.** An
+  alias is expanded when a line is read and a function body is read when
+  the function is defined, so a bare `cd` in `shell/installers.sh` ran
+  whatever the host profile had aliased it to (zoxide's `z`, ...) by the
+  time workbench's files were sourced. `install-snapd`'s Arch AUR build now
+  uses `builtin cd`, and `install-edit` uses `command cp` and
+  `command find`. Two new tests, `tests/check-no-bare-cd.sh` and
+  `tests/check-cd-wrapper.sh` (workbench-core's D110 item 1.1), fail on a
+  bare `cd` or `ls` in sourced code and on any host alias baked into a
+  function the module defines.
+
+- **`shell/development.sh` no longer stubs an `nvm` that is already
+  loaded.** When the user's own rc had sourced nvm (a real `nvm` function,
+  or a non-empty `NVM_BIN`), the lazy-load stubs replaced that function and
+  a stub `node` shadowed the real one until first use. The stubs are now
+  defined only when nvm is not already active. The check uses `declare -f`,
+  not `declare -F`, so it is also correct when zsh sources the file.
+- **`install-nvm` finds nvm in `${XDG_CONFIG_HOME}/nvm`.** `wb` runs as a
+  child of the user's shell, so `NVM_DIR` reaches it only if the rc file
+  exported it. When it is unset and `${XDG_CONFIG_HOME}/nvm` exists (where
+  nvm's own installer puts it), `install-nvm` and `installed-nvm` use that
+  directory instead of creating a second copy in `~/.nvm`.
+
 ### Changed
 
 - **Bug report template asks for OS family and environment separately.**
