@@ -4,6 +4,19 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Installers no longer run the host's `cd`, `cp` or `find` aliases.** An
+  alias is expanded when a line is read and a function body is read when
+  the function is defined, so a bare `cd` in `shell/installers.sh` ran
+  whatever the host profile had aliased it to (zoxide's `z`, ...) by the
+  time workbench's files were sourced. `install-snapd`'s Arch AUR build now
+  uses `builtin cd`, and `install-edit` uses `command cp` and
+  `command find`. Two new tests, `tests/check-no-bare-cd.sh` and
+  `tests/check-cd-wrapper.sh` (workbench-core's D110 item 1.1), fail on a
+  bare `cd` or `ls` in sourced code and on any host alias baked into a
+  function the module defines.
+
 ### Changed
 
 - **Bug report template asks for OS family and environment separately.**
