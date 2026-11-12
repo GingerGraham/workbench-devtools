@@ -4,6 +4,8 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-12
+
 ### Fixed
 
 - **Installers no longer run the host's `cd`, `cp` or `find` aliases.** An
