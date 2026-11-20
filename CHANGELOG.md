@@ -4,6 +4,19 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`~/go/bin`, `~/.pyenv/bin` and `~/.cargo/bin` no longer go in front of
+  the system directories on `PATH`.** They are added at the end, so a
+  program dropped into one of them can't shadow a system command such as
+  `ls` or `sudo`. A directory already on `PATH` stays where your own
+  startup files put it, and none is added twice. `/usr/local/go/bin`
+  still goes first, because it is root-owned and installed on purpose.
+  If you have both a distro Rust and rustup, the distro's `cargo` now
+  wins over `~/.cargo/bin/cargo`; put `~/.cargo/bin` first in
+  `~/.config/workbench/local/settings.sh` if you want rustup's.
+  (workbench-core#172)
+
 ## [1.0.1] - 2026-11-12
 
 ### Fixed
