@@ -4,6 +4,8 @@ All notable changes to `workbench-devtools` are documented here.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-20
+
 ### Changed
 
 - **Agent and contributor guidance covers the stale-base CHANGELOG trap
