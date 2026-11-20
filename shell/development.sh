@@ -44,10 +44,26 @@
 # log it as a new decision in workbench-core's ARCHITECTURE.md §12 rather
 # than reinventing it per-module.
 
+# _wb_dev_path_append <dir>
+# Adds a directory the user owns (~/go/bin, ~/.pyenv/bin, ~/.cargo/bin) to
+# the END of PATH, and only when it isn't there already. At the front, a
+# directory a user-level installer writes into would shadow /usr/bin: a
+# rogue `ls` or `sudo` dropped there wins. An entry that is already on PATH
+# keeps whatever position the user's own startup files gave it.
+# /usr/local/go/bin stays at the front: it is root-owned and put there on
+# purpose, so a newer Go than the distro's wins.
+_wb_dev_path_append() {
+    [[ -d "$1" ]] || return 0
+    case ":${PATH}:" in
+        *":$1:"*) ;;
+        *) PATH="${PATH:+${PATH}:}$1" ;;
+    esac
+}
+
 # ── Go ──
 if [[ -d "${HOME}/go" ]]; then
     export GOPATH="${HOME}/go"
-    [[ -d "${GOPATH}/bin" ]] && PATH="${GOPATH}/bin:${PATH}"
+    _wb_dev_path_append "${GOPATH}/bin"
 fi
 [[ -d "/usr/local/go/bin" ]] && PATH="/usr/local/go/bin:${PATH}"
 
@@ -56,7 +72,7 @@ fi
 # auto|uv|pyenv|both
 if [[ -d "${HOME}/.pyenv" ]]; then
     export PYENV_ROOT="${HOME}/.pyenv"
-    PATH="${PYENV_ROOT}/bin:${PATH}"
+    _wb_dev_path_append "${PYENV_ROOT}/bin"
 fi
 
 _dotfiles_init_python_manager() {
@@ -127,10 +143,11 @@ if [[ -s "${NVM_DIR}/nvm.sh" ]] \
 fi
 
 # ── Cargo (Rust) ──
-[[ -d "${HOME}/.cargo/bin" ]] && PATH="${HOME}/.cargo/bin:${PATH}"
+_wb_dev_path_append "${HOME}/.cargo/bin"
 
 # ── asdf ──
 # shellcheck disable=SC1091
 [[ -s "${HOME}/.asdf/asdf.sh" ]] && source "${HOME}/.asdf/asdf.sh"
 
+unset -f _wb_dev_path_append
 export PATH
